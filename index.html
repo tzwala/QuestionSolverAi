@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Solver AI</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+
+    <style>
+        :root {
+            --bg-light: #f4f7fc;
+            --glass-bg-light: rgba(255, 255, 255, 0.7);
+            --glass-border-light: rgba(229, 231, 235, 0.9);
+            --highlight-bg-light: rgba(0, 0, 0, 0.04);
+            --text-color-light: #1f2937;
+            --text-muted-color-light: #6b7280;
+            --shadow-color-light: rgba(43, 52, 60, 0.1);
+            --skeleton-bg-light: #e5e7eb;
+            --skeleton-highlight-light: #f0f3f8;
+            
+            --accent-color: #3B82F6;
+            --accent-color-dark: #2563EB;
+            --accent-text-color: #ffffff;
+            --border-radius: 20px;
+        }
+
+        [data-theme="dark"] {
+            --bg-dark: radial-gradient(circle at 100% 0%, #1e3a8a 0%, #111827 40%);
+            --card-bg-dark: rgba(31, 41, 55, 0.75);
+            --card-border-dark: rgba(75, 85, 99, 0.5);
+            --highlight-bg-dark: rgba(55, 65, 81, 0.5);
+            --text-color-dark: #F9FAFB;
+            --text-muted-color-dark: #9CA3AF;
+            --shadow-color-dark: rgba(0, 0, 0, 0.3);
+            --input-bg-dark: rgba(17, 24, 39, 0.5);
+            --skeleton-bg-dark: #374151;
+            --skeleton-highlight-dark: #4b5563;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-color-light);
+            transition: background 0.5s ease, color 0.5s ease;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        [data-theme="dark"] body { background: var(--bg-dark); color: var(--text-color-dark); }
+
+        .app-container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            width: 100%;
+            flex-grow: 1; /* Allows footer to be pushed down */
+        }
+        
+        .glass-card {
+            background: var(--glass-bg-light);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--glass-border-light);
+            box-shadow: 0 8px 32px 0 var(--shadow-color-light);
+            transition: all 0.5s ease;
+        }
+        
+        [data-theme="dark"] .glass-card {
+            background: var(--card-bg-dark);
+            border: 1px solid var(--card-border-dark);
+            box-shadow: 0 8px 32px 0 var(--shadow-color-dark);
+        }
+        
+        .header { padding: 15px 25px; position: sticky; top: 20px; z-index: 100; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header-title h1 { font-size: 22px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .theme-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .theme-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.2); transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-color); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .input-card { padding: 25px; margin-bottom: 20px; animation: card-fade-in 0.5s ease-out; }
+        
+        .subject-tabs { display: flex; overflow-x: auto; gap: 8px; margin-bottom: 20px; padding-bottom: 5px; }
+        .subject-tab { flex-shrink: 0; padding: 8px 16px; border-radius: 20px; background: transparent; border: 1px solid; color: var(--text-muted-color-light); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; border-color: var(--glass-border-light); }
+        [data-theme="dark"] .subject-tab { color: var(--text-muted-color-dark); border-color: var(--card-border-dark); }
+        .subject-tab:hover { transform: translateY(-2px); border-color: var(--accent-color); color: var(--accent-color); }
+        .subject-tab.active { background: var(--accent-color); color: var(--accent-text-color); border-color: var(--accent-color); transform: translateY(0); }
+
+        .input-modes { display: flex; background-color: rgba(0,0,0,0.05); border-radius: 10px; padding: 4px; margin-bottom: 15px; }
+        [data-theme="dark"] .input-modes { background-color: var(--input-bg-dark); }
+        .mode-btn { flex: 1; padding: 8px; border: none; background: transparent; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-muted-color-light); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        [data-theme="dark"] .mode-btn { color: var(--text-muted-color-dark); }
+        .mode-btn:hover:not(.active) { transform: translateY(-2px); }
+        .mode-btn.active { background: var(--glass-bg-light); color: var(--text-color-light); box-shadow: 0 1px 5px var(--shadow-color-light); border: 1px solid var(--glass-border-light); }
+        [data-theme="dark"] .mode-btn.active { background: var(--accent-color); color: var(--accent-text-color); border: none; box-shadow: none; }
+
+        .question-input { width: 100%; min-height: 120px; padding: 15px; border: 1px solid; border-radius: 12px; font-size: 16px; resize: vertical; background: transparent; font-family: inherit; transition: all 0.2s ease; border-color: var(--glass-border-light); color: var(--text-color-light); }
+        .question-input::placeholder { color: var(--text-muted-color-light); }
+        [data-theme="dark"] .question-input { border-color: var(--card-border-dark); color: var(--text-color-dark); }
+        [data-theme="dark"] .question-input::placeholder { color: var(--text-muted-color-dark); }
+        .question-input:focus { outline: none; border-color: var(--accent-color); background: rgba(255, 255, 255, 0.1); }
+        [data-theme="dark"] .question-input:focus { background: rgba(0, 0, 0, 0.1); }
+
+        .image-upload-area { display: none; border: 2px dashed; border-radius: 12px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; border-color: var(--glass-border-light); }
+        [data-theme="dark"] .image-upload-area { border-color: var(--card-border-dark); }
+        .image-upload-area:hover, .image-upload-area.dragover { border-color: var(--accent-color); }
+        .upload-text { color: var(--text-muted-color-light); }
+        [data-theme="dark"] .upload-text { color: var(--text-muted-color-dark); }
+        #imagePreview { margin-top: 15px; }
+        .uploaded-image { max-width: 100%; max-height: 300px; border-radius: 12px; border: 1px solid var(--glass-border-light); }
+        [data-theme="dark"] .uploaded-image { border-color: var(--card-border-dark); }
+        .image-container { position: relative; display: inline-block; }
+        .remove-image-btn { position: absolute; top: 10px; right: 10px; background: rgba(0, 0, 0, 0.6); color: white; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        .solve-btn { width: 100%; background: linear-gradient(135deg, var(--accent-color), var(--accent-color-dark)); color: var(--accent-text-color); border: none; padding: 16px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .solve-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3); }
+        .solve-btn:active:not(:disabled) { transform: scale(0.98); }
+        .solve-btn:disabled { opacity: 0.8; cursor: not-allowed; }
+        .solve-btn .spinner { display: none; width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.5); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+        .solve-btn.processing .btn-text { display: none; }
+        .solve-btn.processing .spinner { display: block; }
+        
+        .result-card { padding: 25px; margin-top: 20px; display: none; animation: card-fade-in 0.5s ease-out; }
+        
+        .user-question-highlight { background: var(--highlight-bg-light); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--glass-border-light); }
+        [data-theme="dark"] .user-question-highlight { background: var(--highlight-bg-dark); border-color: var(--card-border-dark); }
+        .user-question-highlight strong { display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-muted-color-light); }
+        [data-theme="dark"] .user-question-highlight strong { color: var(--text-muted-color-dark); }
+        .user-question-highlight p { margin: 0; line-height: 1.6; }
+        .user-question-highlight img { max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 10px; border: 1px solid var(--glass-border-light); }
+        [data-theme="dark"] .user-question-highlight img { border-color: var(--card-border-dark); }
+        
+        .result-divider { border: none; height: 1px; background-color: var(--glass-border-light); margin-bottom: 20px; }
+        [data-theme="dark"] .result-divider { background-color: var(--card-border-dark); }
+
+        .result-content { line-height: 1.7; }
+        .result-content > *:first-child { margin-top: 0; }
+        .result-content h3 { margin: 24px 0 12px; }
+        .result-content pre { background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid var(--glass-border-light); }
+        .result-content code:not(pre code) { background: rgba(0,0,0,0.05); padding: 3px 6px; border-radius: 6px; }
+        [data-theme="dark"] .result-content pre, [data-theme="dark"] .result-content code:not(pre code) { background: var(--input-bg-dark); border-color: var(--card-border-dark); }
+
+        .error-alert { background: rgba(255, 204, 204, 0.5); backdrop-filter: blur(10px); color: #c92a2a; padding: 15px; border-radius: 12px; margin-top: 20px; display: none; border: 1px solid rgba(201, 42, 42, 0.5); font-weight: 500; }
+        [data-theme="dark"] .error-alert { background: rgba(43, 29, 29, 0.5); color: #ff8787; border-color: rgba(89, 49, 49, 0.5); }
+        
+        #skeletonLoader { display: none; margin-bottom: 20px; }
+        .skeleton {
+            opacity: 0.7;
+            animation: skeleton-loading 1.5s infinite linear;
+            background-image: linear-gradient(90deg, var(--skeleton-bg-light) 25%, var(--skeleton-highlight-light) 50%, var(--skeleton-bg-light) 75%);
+            background-size: 200% 100%;
+            border-radius: 8px;
+        }
+        [data-theme="dark"] .skeleton {
+            background-image: linear-gradient(90deg, var(--skeleton-bg-dark) 25%, var(--skeleton-highlight-dark) 50%, var(--skeleton-bg-dark) 75%);
+        }
+        .skeleton-question { height: 80px; margin-bottom: 20px; }
+        .skeleton-line { height: 16px; margin-bottom: 12px; }
+
+        /* --- NEW: Footer Styles --- */
+        .footer {
+            text-align: center;
+            padding: 40px 20px 20px;
+            color: var(--text-muted-color-light);
+            font-size: 14px;
+            transition: color 0.5s ease;
+        }
+        [data-theme="dark"] .footer {
+            color: var(--text-muted-color-dark);
+        }
+        .footer a {
+            color: inherit;
+            font-weight: 500;
+            text-decoration: none;
+            transition: color 0.2s ease;
+            border-bottom: 1px solid transparent;
+        }
+        .footer a:hover {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+        }
+        .footer .disclaimer {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 8px;
+        }
+
+        @keyframes skeleton-loading { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+        @keyframes card-fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header glass-card">
+            <div class="header-title"><h1><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M20 12h-4"/><path d="m15 17-3-3-3 3"/></svg> Solver AI</h1></div>
+            <div class="theme-switch-wrapper"><label class="theme-switch" for="theme-checkbox"><input type="checkbox" id="theme-checkbox" /><div class="slider"></div></label></div>
+        </header>
+
+        <main>
+            <div class="input-card glass-card">
+                 <div class="subject-tabs">
+                     <button class="subject-tab active" data-subject="general">General</button>
+                     <button class="subject-tab" data-subject="english">English</button>
+                     <button class="subject-tab" data-subject="hindi">Hindi</button>
+                     <button class="subject-tab" data-subject="bengali">Bengali</button>
+                     <button class="subject-tab" data-subject="math">Math</button>
+                     <button class="subject-tab" data-subject="physics">Physics</button>
+                     <button class="subject-tab" data-subject="chemistry">Chemistry</button>
+                     <button class="subject-tab" data-subject="biology">Biology</button>
+                </div>
+                <div class="input-modes">
+                    <button class="mode-btn active" data-mode="text"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>Text</button>
+                    <button class="mode-btn" data-mode="image"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>Image</button>
+                </div>
+
+                <div id="textMode"><textarea id="questionInput" class="question-input" placeholder="Ask anything... from solving a math problem to explaining a concept."></textarea></div>
+                <div id="imageMode" class="image-upload-area">
+                    <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path><line x1="16" y1="5" x2="22" y2="5"></line><line x1="19" y1="2" x2="19" y2="8"></line><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></div>
+                    <div class="upload-text"><strong>Click to upload</strong> or drag and drop</div>
+                    <input type="file" id="imageInput" hidden accept="image/*">
+                </div>
+                <div id="imagePreview"></div>
+
+                <button class="solve-btn" id="solveBtn"><span class="btn-text">Solve Question</span><div class="spinner"></div></button>
+            </div>
+            
+            <div id="skeletonLoader" class="glass-card">
+                <div style="padding: 25px;">
+                    <div class="skeleton skeleton-question"></div>
+                    <hr class="result-divider" style="background-color: transparent; border-top: 1px solid var(--glass-border-light);">
+                    <div class="skeleton skeleton-line" style="width: 90%;"></div>
+                    <div class="skeleton skeleton-line" style="width: 100%;"></div>
+                    <div class="skeleton skeleton-line" style="width: 75%;"></div>
+                </div>
+            </div>
+
+            <div class="error-alert" id="errorAlert"></div>
+            <div class="result-card glass-card" id="resultCard"></div>
+        </main>
+        
+        <!-- NEW: Footer Markup -->
+        <footer class="footer">
+            <p>Powered by  <a href="https://HaldarAi.vercel.app" target="_blank">HaldarAi💡</a>.</p>
+            <p class="disclaimer">© 2025 Solver AI. AI-generated content may be inaccurate.</p>
+        </footer>
+    </div>
+
+    <script>
+        const docElement = document.documentElement;
+        const themeToggle = document.getElementById('theme-checkbox');
+        const solveBtn = document.getElementById('solveBtn');
+        const questionInput = document.getElementById('questionInput');
+        const imageInput = document.getElementById('imageInput');
+        const imageUploadArea = document.getElementById('imageMode');
+        const errorAlert = document.getElementById('errorAlert');
+        const resultCard = document.getElementById('resultCard');
+        const inputCard = document.querySelector('.input-card');
+        const skeletonLoader = document.getElementById('skeletonLoader');
+        
+        const API_KEY = 'AIzaSyBLSyTNLDUi8TbuWZi7BVZjUS_DQYdXEo8';
+        let state = { subject: 'general', mode: 'text', isProcessing: false, uploadedImage: null };
+
+        const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        docElement.setAttribute('data-theme', savedTheme);
+        themeToggle.checked = savedTheme === 'dark';
+        
+        themeToggle.addEventListener('change', () => {
+            const targetTheme = themeToggle.checked ? 'dark' : 'light';
+            docElement.setAttribute('data-theme', targetTheme);
+            localStorage.setItem('theme', targetTheme);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.subject-tab').forEach(tab => tab.addEventListener('click', handleSubjectChange));
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.addEventListener('click', handleModeChange));
+            solveBtn.addEventListener('click', solveQuestion);
+            imageUploadArea.addEventListener('click', () => imageInput.click());
+            imageInput.addEventListener('change', e => processImageFile(e.target.files[0]));
+            ['dragover', 'drop', 'dragleave'].forEach(e => imageUploadArea.addEventListener(e, preventDefaults, false));
+            imageUploadArea.addEventListener('dragover', () => imageUploadArea.classList.add('dragover'));
+            imageUploadArea.addEventListener('dragleave', () => imageUploadArea.classList.remove('dragover'));
+            imageUploadArea.addEventListener('drop', handleDrop);
+            questionInput.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) solveQuestion(); });
+        });
+        
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+        
+        function handleSubjectChange(e) {
+            document.querySelector('.subject-tab.active').classList.remove('active');
+            e.target.classList.add('active');
+            state.subject = e.target.dataset.subject;
+        }
+
+        function handleModeChange(e) {
+            const newMode = e.currentTarget.dataset.mode;
+            if (state.mode === newMode) return;
+            document.querySelector('.mode-btn.active').classList.remove('active');
+            e.currentTarget.classList.add('active');
+            state.mode = newMode;
+            document.getElementById('textMode').style.display = newMode === 'text' ? 'block' : 'none';
+            document.getElementById('imageMode').style.display = newMode === 'image' ? 'block' : 'none';
+            if (newMode === 'text') clearImage();
+        }
+
+        function handleDrop(e) {
+            imageUploadArea.classList.remove('dragover');
+            processImageFile(e.dataTransfer.files[0]);
+        }
+
+        function processImageFile(file) {
+            if (!file || !file.type.startsWith('image/')) return showError('Please select a valid image file.');
+            const reader = new FileReader();
+            reader.onload = e => {
+                const imageData = { data: e.target.result.split(',')[1], mimeType: file.type, src: e.target.result };
+                state.uploadedImage = imageData;
+                document.getElementById('imagePreview').innerHTML = `<div class="image-container"><img src="${imageData.src}" class="uploaded-image" alt="Uploaded question"><button class="remove-image-btn" onclick="clearImage()">✖</button></div>`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearImage() {
+            state.uploadedImage = null;
+            document.getElementById('imagePreview').innerHTML = '';
+            imageInput.value = '';
+        }
+
+        function showError(message) {
+            errorAlert.textContent = message;
+            errorAlert.style.display = 'block';
+        }
+
+        async function solveQuestion() {
+            if (state.isProcessing) return;
+
+            const questionText = questionInput.value.trim();
+            if (state.mode === 'text' && !questionText) return showError('Please enter a question.');
+            if (state.mode === 'image' && !state.uploadedImage) return showError('Please upload an image.');
+
+            state.isProcessing = true;
+            solveBtn.disabled = true;
+            errorAlert.style.display = 'none';
+            resultCard.style.display = 'none';
+            inputCard.style.display = 'none';
+            skeletonLoader.style.display = 'block';
+
+            let questionHighlightHtml = '';
+            if (state.mode === 'image' && state.uploadedImage) {
+                questionHighlightHtml += `<img src="${state.uploadedImage.src}" alt="Your uploaded question">`;
+                if(questionText) questionHighlightHtml += `<p>${DOMPurify.sanitize(questionText)}</p>`;
+            } else {
+                questionHighlightHtml = `<p>${DOMPurify.sanitize(questionText)}</p>`;
+            }
+
+            try {
+                const prompt = createPrompt(questionText, state.subject, state.mode);
+                const responseText = await callGeminiAPI(prompt, state.uploadedImage);
+                const sanitizedAiHtml = DOMPurify.sanitize(marked.parse(responseText));
+
+                resultCard.innerHTML = `
+                    <div class="user-question-highlight">
+                        <strong>You asked:</strong>
+                        ${questionHighlightHtml}
+                    </div>
+                    <hr class="result-divider">
+                    <div class="result-content">
+                        ${sanitizedAiHtml}
+                    </div>
+                `;
+                
+                resultCard.style.display = 'block';
+                resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (error) {
+                console.error('Error:', error);
+                showError('An error occurred: ' + error.message);
+            } finally {
+                state.isProcessing = false;
+                solveBtn.disabled = false;
+                skeletonLoader.style.display = 'none';
+                inputCard.style.display = 'block';
+            }
+        }
+        
+        function createPrompt(question, subject, mode) {
+            const prompts = {
+                general: "As an expert educational assistant, answer clearly:",
+                english: "As an English language expert, assist with this query:",
+                hindi: "As a Hindi language expert, answer this in Hindi (Devanagari) and English:",
+                bengali: "As a Bengali language expert, answer this in Bengali (Bangla) and English:",
+                math: "As a mathematics expert, solve this step-by-step:",
+                physics: "As a physics expert, explain this concept with formulas:",
+                chemistry: "As a chemistry expert, explain this chemical concept:",
+                biology: "As a biology expert, explain this biological process:"
+            };
+            let fullPrompt = prompts[subject] || prompts.general;
+            
+            if (mode === 'image') {
+                fullPrompt += "\nAnalyze the uploaded image and provide a detailed solution." + (question ? `\nUser's additional context: ${question}` : "");
+            } else {
+                fullPrompt += `\nQuestion: ${question}`;
+            }
+            fullPrompt += "\nFormat your response using Markdown (e.g., **bold**, lists).";
+            return fullPrompt;
+        }
+
+        async function callGeminiAPI(prompt, imageData = null) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
+            const parts = [{ text: prompt }];
+            if (imageData) parts.push({ inline_data: { mime_type: imageData.mimeType, data: imageData.data } });
+
+            const body = {
+                contents: [{ parts: parts }],
+                generationConfig: { temperature: 0.5, maxOutputTokens: 2048 },
+                safetySettings: [
+                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" }
+                ]
+            };
+
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error("API Error:", errorData);
+                throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+            }
+
+            const data = await response.json();
+            if (data.promptFeedback?.blockReason) throw new Error(`Request blocked. Reason: ${data.promptFeedback.blockReason}`);
+            if (!data.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error('Invalid or empty response from the AI.');
+
+            return data.candidates[0].content.parts[0].text;
+        }
+    </script>
+</body>
+</html>
